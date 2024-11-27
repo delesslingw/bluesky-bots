@@ -11,26 +11,28 @@ const interval = setInterval(() => {
 
 function post() {
   console.log(`Posting!`)
-  login().then(async (agent) => {
-    try {
-      const result = await getRandom()
-      const imgURL = result.image_uris.normal
-      const name = result.name
-      // console.log(imgURL)
+  login()
+    .then(async (agent) => {
+      try {
+        const result = await getRandom()
+        const imgURL = result.image_uris.normal
+        const name = result.name
+        // console.log(imgURL)
 
-      await agent.post({
-        text: generateText(result),
-        embed: await embedImage(agent, imgURL, {
-          alt: result.name,
-        }),
-        createdAt: new Date().toISOString(),
-      })
-      console.log(`Posted ${result.name}`)
-      // console.log(result)
-    } catch (e) {
-      console.error(e)
-    }
-  })
+        await agent.post({
+          text: generateText(result),
+          embed: await embedImage(agent, imgURL, {
+            alt: result.name,
+          }),
+          createdAt: new Date().toISOString(),
+        })
+        console.log(`Posted ${result.name} (${new Date().toString()})`)
+        // console.log(result)
+      } catch (e) {
+        console.error(e)
+      }
+    })
+    .catch(console.error)
 }
 function generateText(result) {
   const { name, flavor_text, type_line, cmc, mana_cost, oracle_text } = result
