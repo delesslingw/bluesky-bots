@@ -53,7 +53,7 @@ function generateText(result) {
     `${title}\n
 ${oracle_text.trim()}
     `
-  console.log(oracle_text)
+  // console.log(oracle_text)
   // console.log('Text length:', cardText.length)
   if (cardText.length > 300) {
     cardText = cardText.slice(0, 300)
