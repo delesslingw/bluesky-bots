@@ -1,0 +1,21 @@
+{
+  "name": "blue-sky-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "deno run script.ts"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@atproto/api": "^0.13.18",
+    "dotenv": "^16.4.5",
+    "mtgsdk": "^1.0.1",
+    "mtgsdk-ts": "^1.1.2",
+    "node-base64-image": "^2.0.7",
+    "scryfall-api": "^4.0.1",
+    "typescript": "^5.7.2"
+  }
+}
