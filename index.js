@@ -3,6 +3,8 @@ dotenv.config()
 import * as scryfall from 'scryfall-api'
 import { AtpAgent } from '@atproto/api'
 import base64 from 'node-base64-image'
+import express from 'express'
+bindToPort()
 post()
 const delay = 60000 * 30
 const interval = setInterval(() => {
@@ -33,6 +35,24 @@ function post() {
       }
     })
     .catch(console.error)
+}
+function bindToPort() {
+  var app = express()
+
+  app.set('port', process.env.PORT || 5000)
+
+  //For avoidong Heroku $PORT error
+  app
+    .get('/', function (request, response) {
+      var result = 'App is running'
+      response.send(result)
+    })
+    .listen(app.get('port'), function () {
+      console.log(
+        'App is running, server is listening on port ',
+        app.get('port')
+      )
+    })
 }
 function generateText(result) {
   const { name, flavor_text, type_line, cmc, mana_cost, oracle_text } = result
