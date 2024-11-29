@@ -102,8 +102,8 @@ async function embedImage(agent, url, options = {}) {
         image: data.blob,
         aspectRatio: {
           // a hint to clients
-          width: 500,
-          height: 1000,
+          width: 635,
+          height: 889,
         },
         ...options,
       },
