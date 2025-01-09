@@ -4,18 +4,16 @@ import * as scryfall from 'scryfall-api'
 import { AtpAgent } from '@atproto/api'
 import base64 from 'node-base64-image'
 import express from 'express'
+import { hourlyWikiPost } from './wikiDaily'
 bindToPort()
 post()
-hourlyWikiPost({
+await hourlyWikiPost({
   username: process.env.CHRONICLEBOT_USERNAME,
   password: process.env.CHRONICLEBOT_PASSWORD,
 })
-const delay = 60000 * 30
-const interval = setInterval(() => {
+setInterval(async () => {
   post()
-}, delay)
-setInterval(() => {
-  hourlyWikiPost({
+  await hourlyWikiPost({
     username: process.env.CHRONICLEBOT_USERNAME,
     password: process.env.CHRONICLEBOT_PASSWORD,
   })
