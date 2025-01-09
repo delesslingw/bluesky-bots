@@ -4,7 +4,7 @@ import * as scryfall from 'scryfall-api'
 import { AtpAgent } from '@atproto/api'
 import base64 from 'node-base64-image'
 import express from 'express'
-import { hourlyWikiPost } from './wikiDaily'
+import { hourlyWikiPost } from './wikiDaily.js'
 bindToPort()
 post()
 await hourlyWikiPost({
