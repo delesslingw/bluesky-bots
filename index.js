@@ -6,11 +6,20 @@ import base64 from 'node-base64-image'
 import express from 'express'
 bindToPort()
 post()
+hourlyWikiPost({
+  username: process.env.CHRONICLEBOT_USERNAME,
+  password: process.env.CHRONICLEBOT_PASSWORD,
+})
 const delay = 60000 * 30
 const interval = setInterval(() => {
   post()
 }, delay)
-
+setInterval(() => {
+  hourlyWikiPost({
+    username: process.env.CHRONICLEBOT_USERNAME,
+    password: process.env.CHRONICLEBOT_PASSWORD,
+  })
+}, 60 * 60 * 1000)
 function post() {
   console.log(`Posting!`)
   login()
