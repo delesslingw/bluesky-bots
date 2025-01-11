@@ -4,6 +4,8 @@ import wiki from 'wikipedia'
 import { login, embedImage, getImageFileSize } from './helpers.js'
 import base64 from 'node-base64-image'
 const maxFileSizeInKB = 976.56
+// const evts = await getEvents()
+// console.log(evts.length)
 export const hourlyWikiPost = async ({ username, password }) => {
   try {
     const events = await getEvents()
@@ -13,11 +15,25 @@ export const hourlyWikiPost = async ({ username, password }) => {
     // get current hour
     const currentHour = new Date().getHours()
     const startIndex = eventsPerHour * currentHour
-    console.log(startIndex)
-    for (let i = startIndex; i <= startIndex + 1; i++) {
-      console.log(i)
+    const now = new Date()
+    console.log(
+      `There are ${events.length} events.
+Which means we need to post ${eventsPerHour} events per hour.
+It is now ${now.toLocaleString()}.
+Which means we are on hour ${currentHour}
+Therefore we will start with the event at index ${startIndex}:
+    ${getEventData(events[startIndex]).year}
+    ${getEventData(events[startIndex]).text}
+`
+    )
+    // console.log(startIndex)
+    let lastEvent = null
+    for (let i = startIndex; i < startIndex + eventsPerHour; i++) {
       const event = getEventData(events[i])
-      const result = await postWiki({ agent, event })
+      if (lastEvent == null || lastEvent.text != event.text) {
+        const result = await postWiki({ agent, event })
+      }
+      lastEvent = event
     }
   } catch (e) {
     console.error(e)
@@ -32,7 +48,9 @@ const postWiki = async ({ agent, event }) => {
     )
     const post = {
       $type: 'app.bsky.feed.post',
-      text: `${event.year}: ${event.text}`,
+      text: `${event.year}
+
+${event.text}`,
       createdAt: new Date().toISOString(),
       embed: {
         $type: 'app.bsky.embed.external',
@@ -52,7 +70,7 @@ const postWiki = async ({ agent, event }) => {
       },
     }
     const result = await agent.post(post)
-    console.log('Posted?!', event.text)
+    // console.log('Posted?!', event.text)
     return result
   } catch (e) {
     console.error(e)
@@ -133,7 +151,7 @@ async function uploadThumbnail(agent, imageUrl) {
   })
 
   // Log the response for debugging
-  console.log('uploadBlob response:', uploadResult)
+  console.log('uploadBlob success:', uploadResult.success)
 
   // Extract the CID as a string
   if (
