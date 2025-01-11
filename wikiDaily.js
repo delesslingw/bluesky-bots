@@ -2,15 +2,17 @@ import dotenv from 'dotenv'
 dotenv.config()
 import wiki from 'wikipedia'
 import { login, embedImage, getImageFileSize } from './helpers.js'
-import base64 from 'node-base64-image'
-const maxFileSizeInKB = 976.56
-// const evts = await getEvents()
-// console.log(evts.length)
-export const hourlyWikiPost = async ({ username, password }) => {
+
+// const maxFileSizeInKB = 976.56
+
+// await hourlyWikiPost({
+//   username: process.env.TEST_USERNAME,
+//   password: process.env.TEST_PASSWORD,
+// })
+export async function hourlyWikiPost({ username, password }) {
   try {
     const events = await getEvents()
     const agent = await login(username, password)
-
     const eventsPerHour = Math.floor(events.length / 24)
     // get current hour
     const currentHour = new Date().getHours()
@@ -22,16 +24,17 @@ Which means we need to post ${eventsPerHour} events per hour.
 It is now ${now.toLocaleString()}.
 Which means we are on hour ${currentHour}
 Therefore we will start with the event at index ${startIndex}:
-    ${getEventData(events[startIndex]).year}
-    ${getEventData(events[startIndex]).text}
+    ${events[startIndex].year}
+    ${events[startIndex].text}
 `
     )
-    // console.log(startIndex)
+
     let lastEvent = null
     for (let i = startIndex; i < startIndex + eventsPerHour; i++) {
-      const event = getEventData(events[i])
+      const event = events[i]
+
       if (lastEvent == null || lastEvent.text != event.text) {
-        const result = await postWiki({ agent, event })
+        const result = await postEvent(agent, event)
       }
       lastEvent = event
     }
@@ -40,11 +43,15 @@ Therefore we will start with the event at index ${startIndex}:
   }
 }
 
-const postWiki = async ({ agent, event }) => {
+// ==========
+// HELPERS
+// ==========
+async function postEvent(agent, event) {
   try {
+    let { page, pages } = getFirstPageWithImage(event.pages)
     const { thumbnailLink, mimeType, size } = await uploadThumbnail(
       agent,
-      event.thumbnail.source
+      page.thumbnail.source
     )
     const post = {
       $type: 'app.bsky.feed.post',
@@ -55,9 +62,9 @@ ${event.text}`,
       embed: {
         $type: 'app.bsky.embed.external',
         external: {
-          uri: event.link,
-          title: event.pagetitle,
-          description: event.extract,
+          uri: page.content_urls.mobile.page,
+          title: page.titles.normalized,
+          description: page.extract,
           thumb: {
             $type: 'blob',
             ref: {
@@ -69,71 +76,123 @@ ${event.text}`,
         },
       },
     }
-    const result = await agent.post(post)
-    // console.log('Posted?!', event.text)
-    return result
+    const { uri, cid } = await agent.post(post)
+    const root = { uri, cid }
+    await recursivelyReply(agent, pages, root, root)
   } catch (e) {
     console.error(e)
   }
 }
+async function recursivelyReply(agent, pages, root, parent) {
+  try {
+    if (pages.length < 1) {
+      return
+    }
 
-// console.log(event)
+    let page = pages.splice(0, 1)[0]
 
-// ==========
-// HELPERS
-// ==========
+    let keys = Object.keys(page)
+    let hasPhoto = keys.includes('thumbnail')
+
+    let thumbnailLink, mimeType, size
+    if (hasPhoto) {
+      let result = await uploadThumbnail(agent, page.thumbnail.source)
+      thumbnailLink = result.thumbnailLink
+      mimeType = result.mimeType
+      size = result.size
+    }
+
+    const post = {
+      $type: 'app.bsky.feed.post',
+      // TODO:
+      text: truncateString(page.extract),
+      createdAt: new Date().toISOString(),
+      reply: {
+        // TODO: replace with passed props parent and root
+        parent,
+        root,
+      },
+      embed: {
+        $type: 'app.bsky.embed.external',
+        // TODO: create ternary to handle if there is no photo
+        external: hasPhoto
+          ? {
+              uri: page.content_urls.mobile.page,
+              title: page.titles.normalized,
+              description: page.extract,
+              thumb: {
+                $type: 'blob',
+                ref: {
+                  $link: thumbnailLink,
+                },
+                mimeType,
+                size, // Use actual file size if available
+              },
+            }
+          : {
+              uri: page.content_urls.mobile.page,
+              title: page.titles.normalized,
+              description: page.extract,
+            },
+      },
+    }
+    const { uri, cid } = await agent.post(post)
+    parent = { uri, cid }
+    if (pages.length > 0) {
+      // TODO: set parent to what is returned from result
+      // parent =
+      recursivelyReply(agent, pages, root, parent)
+    } else {
+      const now = new Date()
+      console.log(`Completed posting event and pages at ${now.toISOString()}`)
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+function truncateString(input) {
+  const maxLength = 300 // Maximum allowed length
+
+  if (input.length <= maxLength) {
+    return input // If the input is already within the limit, return as is
+  }
+
+  // Truncate to 300 characters and backtrack to the last space
+  const truncated = input.slice(0, maxLength - 3) // Reserve space for "..."
+  const lastSpaceIndex = truncated.lastIndexOf(' ')
+
+  if (lastSpaceIndex === -1) {
+    // No space found, just truncate directly and add ellipses
+    return truncated + '...'
+  }
+
+  // Truncate at the last space to avoid breaking a word
+  return truncated.slice(0, lastSpaceIndex) + '...'
+}
 async function getEvents() {
   const { events } = await wiki.onThisDay()
   return events.sort((a, b) => a.year - b.year)
 }
 
-function getEventData(event) {
-  const page = getPage(event.pages)
-  return {
-    text: event.text,
-    year: event.year,
-    thumbnail: page.thumbnail,
-    originalimage: page.originalimage,
-    link: page.content_urls.mobile.page,
-    extract: page.extract,
-    pagetitle: page.titles.normalized,
-  }
-}
-function getPage(pages) {
-  let page = pages[Math.floor(Math.random() * pages.length)]
-  if (page.thumbnail == undefined || page.originalimage == undefined) {
-    return getPage(pages)
-  } else {
-    return page
-  }
-}
+function getFirstPageWithImage(pages) {
+  let firstPageWithImageIndex = null
 
-function formatEvent(extract, link) {
-  const maxLength = 300 // Maximum allowed length
+  for (let i = 0; i < pages.length; i++) {
+    let keys = Object.keys(pages[i])
 
-  const newline = '\n\n' // Two new lines
-  const linkLength = link.length + newline.length // Length occupied by the link and newlines
-  const maxExtractLength = maxLength - linkLength // Maximum length for the shortened extract
-
-  // Shorten the extract if necessary
-  let shortenedExtract = extract
-  if (extract.length > maxExtractLength) {
-    shortenedExtract = extract.slice(0, maxExtractLength - 3) + '...' // Add ellipsis
+    if (keys.includes('thumbnail') && keys.includes('originalimage')) {
+      firstPageWithImageIndex = i
+      break
+    }
   }
 
-  // Combine the shortened extract with the link
-  const formattedString = `${shortenedExtract}${newline}${link}`
+  if (firstPageWithImageIndex !== null) {
+    // Remove the page from the array using splice
+    let page = pages.splice(firstPageWithImageIndex, 1)[0] // Splice returns an array, take the first element
 
-  // Calculate the byteStart and byteEnd for the hyperlink
-  const byteStart = shortenedExtract.length + newline.length // Start after the extract and newlines
-  const byteEnd = byteStart + link.length // End after the link's length
-
-  // Return the formatted string and hyperlink positions
-  return {
-    formattedString,
-    byteStart,
-    byteEnd,
+    return { page, pages, index: firstPageWithImageIndex }
   }
+  return { page: null, pages, index: firstPageWithImageIndex } // Handle case where no page is found
 }
 
 async function uploadThumbnail(agent, imageUrl) {
@@ -151,7 +210,7 @@ async function uploadThumbnail(agent, imageUrl) {
   })
 
   // Log the response for debugging
-  console.log('uploadBlob success:', uploadResult.success)
+  // console.log('uploadBlob success:', uploadResult.success)
 
   // Extract the CID as a string
   if (
