@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'
 dotenv.config()
 import wiki from 'wikipedia'
-import { login, embedImage, getImageFileSize } from './helpers.js'
+import { login } from './helpers.js'
 
 // const maxFileSizeInKB = 976.56
 
@@ -12,7 +12,10 @@ import { login, embedImage, getImageFileSize } from './helpers.js'
 export async function hourlyWikiPost({ username, password }) {
   try {
     const events = await getEvents()
+    console.log(events[0].pages)
     const agent = await login(username, password)
+    await postEvent(agent, events[1])
+    return
     const eventsPerHour = Math.floor(events.length / 24)
     // get current hour
     const currentHour = new Date().getHours()
@@ -85,12 +88,19 @@ ${event.text}`,
 }
 async function recursivelyReply(agent, pages, root, parent) {
   try {
+    const today = new Date()
     if (pages.length < 1) {
+      console.log(`Completed posting event and pages at ${today.toISOString()}`)
       return
     }
-
     let page = pages.splice(0, 1)[0]
-
+    const date = today.getDate()
+    const month = today.toLocaleString('default', { month: 'long' })
+    if (page.normalizedtitle == `${month} ${date}`) {
+      console.log(`Skipping Wikipedia entry for '${month} ${date}'`)
+      recursivelyReply(agent, pages, root, parent)
+      return
+    }
     let keys = Object.keys(page)
     let hasPhoto = keys.includes('thumbnail')
 
@@ -138,14 +148,7 @@ async function recursivelyReply(agent, pages, root, parent) {
     }
     const { uri, cid } = await agent.post(post)
     parent = { uri, cid }
-    if (pages.length > 0) {
-      // TODO: set parent to what is returned from result
-      // parent =
-      recursivelyReply(agent, pages, root, parent)
-    } else {
-      const now = new Date()
-      console.log(`Completed posting event and pages at ${now.toISOString()}`)
-    }
+    recursivelyReply(agent, pages, root, parent)
   } catch (e) {
     console.error(e)
   }
