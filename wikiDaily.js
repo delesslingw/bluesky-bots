@@ -12,10 +12,7 @@ import { login } from './helpers.js'
 export async function hourlyWikiPost({ username, password }) {
   try {
     const events = await getEvents()
-    console.log(events[0].pages)
     const agent = await login(username, password)
-    await postEvent(agent, events[1])
-    return
     const eventsPerHour = Math.floor(events.length / 24)
     // get current hour
     const currentHour = new Date().getHours()
